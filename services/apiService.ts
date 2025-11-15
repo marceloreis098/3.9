@@ -164,6 +164,10 @@ export const disableUser2FA = (userId: number): Promise<void> => {
     return apiRequest('/disable-user-2fa', { method: 'POST', body: JSON.stringify({ userId }) });
 };
 
+// AI Endpoints
+export const checkAiStatus = (): Promise<{ isConfigured: boolean }> => {
+    return apiRequest('/ai/status');
+};
 
 // Settings Endpoints
 export const getSettings = (): Promise<AppSettings> => {

@@ -96,6 +96,11 @@ export interface AuditLogEntry {
     timestamp: string;
 }
 
+export interface ChatMessage {
+    role: 'user' | 'model';
+    text: string;
+}
+
 export interface AppSettings {
     companyName: string;
     isSsoEnabled: boolean;
@@ -113,4 +118,7 @@ export interface AppSettings {
     termo_devolucao_template?: string;
     hasInitialConsolidationRun?: boolean;
     lastAbsoluteUpdateTimestamp?: string;
+    aiAssistantEnabled?: boolean;
+    geminiModel?: string;
+    aiSystemInstruction?: string;
 }

@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const crypto = require('crypto');
+const { GoogleGenAI } = require('@google/genai');
 
 const app = express();
 app.use(cors());
@@ -37,6 +38,14 @@ const db = mysql.createPool({
     queueLimit: 0,
     multipleStatements: true
 });
+
+const geminiApiKey = process.env.GEMINI_API_KEY;
+let genAI;
+if (geminiApiKey) {
+    genAI = new GoogleGenAI({ apiKey: geminiApiKey });
+} else {
+    console.warn("GEMINI_API_KEY not found in .env file. AI Assistant will be disabled.");
+}
 
 const runMigrations = async () => {
     console.log("Checking database migrations...");
@@ -67,7 +76,8 @@ const runMigrations = async () => {
             { id: 17, sql: `ALTER TABLE equipment ADD COLUMN identificador VARCHAR(255) NULL; ALTER TABLE equipment ADD COLUMN nomeSO VARCHAR(255) NULL; ALTER TABLE equipment ADD COLUMN memoriaFisicaTotal VARCHAR(255) NULL; ALTER TABLE equipment ADD COLUMN grupoPoliticas VARCHAR(255) NULL; ALTER TABLE equipment ADD COLUMN pais VARCHAR(255) NULL; ALTER TABLE equipment ADD COLUMN cidade VARCHAR(255) NULL; ALTER TABLE equipment ADD COLUMN estadoProvincia VARCHAR(255) NULL;` },
             { id: 18, sql: `ALTER TABLE equipment ADD COLUMN condicaoTermo VARCHAR(50) NULL;` },
             { id: 19, sql: `UPDATE equipment SET status = 'Em Uso' WHERE usuarioAtual IS NOT NULL AND usuarioAtual != '';` },
-            { id: 20, sql: `INSERT IGNORE INTO app_config (config_key, config_value) VALUES ('hasInitialConsolidationRun', 'false'); INSERT IGNORE INTO app_config (config_key, config_value) VALUES ('lastAbsoluteUpdateTimestamp', NULL);` }
+            { id: 20, sql: `INSERT IGNORE INTO app_config (config_key, config_value) VALUES ('hasInitialConsolidationRun', 'false'); INSERT IGNORE INTO app_config (config_key, config_value) VALUES ('lastAbsoluteUpdateTimestamp', NULL);` },
+            { id: 21, sql: `INSERT IGNORE INTO app_config (config_key, config_value) VALUES ('aiAssistantEnabled', 'false'), ('geminiModel', 'gemini-2.5-flash'), ('aiSystemInstruction', 'Você é um assistente prestativo especialista em gerenciamento de inventário de TI. Responda em português brasileiro.');` }
         ];
         const migrationsToRun = migrations.filter(m => !executedMigrationIds.has(m.id));
         if (migrationsToRun.length > 0) {
@@ -141,7 +151,7 @@ const isAdmin = async (req, res, next) => {
     }
 };
 
-// ... (existing endpoints from /api to /api/database/clear)
+// ... (existing endpoints)
 app.get('/api', (req, res) => res.json({ message: "Inventario Pro API is running!" }));
 app.post('/api/login', async (req, res) => { try { const { username, password, ssoToken } = req.body; if (ssoToken) { return res.status(501).json({ message: "SSO token validation not implemented." }); } const [results] = await db.promise().query("SELECT * FROM users WHERE username = ?", [username]); if (results.length > 0) { const user = results[0]; const passwordIsValid = bcrypt.compareSync(password, user.password); if (passwordIsValid) { const [settingsRows] = await db.promise().query("SELECT config_key, config_value FROM app_config WHERE config_key IN ('is2faEnabled', 'require2fa')"); const settings = settingsRows.reduce((acc, row) => { acc[row.config_key] = row.config_value === 'true'; return acc; }, {}); if (settings.is2faEnabled && settings.require2fa && !user.is2FAEnabled && user.username !== 'admin' && !user.ssoProvider) { logAction(username, 'LOGIN_SUCCESS', 'USER', user.id, 'User requires 2FA setup.'); const userResponse = { ...user, requires2FASetup: true }; delete userResponse.password; delete userResponse.twoFASecret; return res.json(userResponse); } await db.promise().query("UPDATE users SET lastLogin = NOW() WHERE id = ?", [user.id]); logAction(username, 'LOGIN', 'USER', user.id, 'User logged in successfully'); const userResponse = { ...user }; delete userResponse.password; delete userResponse.twoFASecret; res.json(userResponse); } else { res.status(401).json({ message: "Usuário ou senha inválidos" }); } } else { res.status(401).json({ message: "Usuário ou senha inválidos" }); } } catch (err) { console.error("Login error:", err); return res.status(500).json({ message: "Erro de banco de dados durante o login." }); } });
 app.get('/api/sso/login', async (req, res) => { try { const [rows] = await db.promise().query("SELECT config_key, config_value FROM app_config WHERE config_key IN ('isSsoEnabled', 'ssoUrl', 'ssoEntityId')"); const settings = rows.reduce((acc, row) => { acc[row.config_key] = row.config_value; return acc; }, {}); if (settings.isSsoEnabled !== 'true' || !settings.ssoUrl) { return res.status(400).send('<h1>Erro de Configuração</h1><p>O Login SSO não está habilitado ou a URL do SSO não foi configurada. Por favor, contate o administrador.</p>'); } const frontendHost = req.hostname; const acsUrl = `http://${frontendHost}:3001/api/sso/callback`; const entityId = settings.ssoEntityId || `http://${frontendHost}:3000`; const requestId = '_' + crypto.randomBytes(20).toString('hex'); const issueInstant = new Date().toISOString(); const samlRequestXml = `<samlp:AuthnRequest xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="${requestId}" Version="2.0" IssueInstant="${issueInstant}" Destination="${settings.ssoUrl}" ProtocolBinding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" AssertionConsumerServiceURL="${acsUrl}"><saml:Issuer>${entityId}</saml:Issuer><samlp:NameIDPolicy Format="urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified" AllowCreate="true" /></samlp:AuthnRequest>`.trim(); zlib.deflateRaw(Buffer.from(samlRequestXml), (err, compressed) => { if (err) { console.error("SAML request compression failed:", err); return res.status(500).send("Falha ao construir a solicitação SAML."); } const samlRequest = compressed.toString('base64'); const redirectUrl = `${settings.ssoUrl}?SAMLRequest=${encodeURIComponent(samlRequest)}`; res.redirect(redirectUrl); }); } catch (error) { console.error("Error during SSO login initiation:", error); res.status(500).send("Erro interno do servidor durante o login SSO."); } });
@@ -182,6 +192,48 @@ app.get('/api/database/backup-status', (req, res) => { const backupFile = path.j
 app.post('/api/database/backup', isAdmin, (req, res) => { const backupFile = path.join(BACKUP_DIR, `inventario_pro_backup.sql.gz`); const command = `mysqldump -h ${DB_HOST} -u ${DB_USER} -p'${DB_PASSWORD}' ${DB_DATABASE} | gzip > ${backupFile}`; exec(command, (error, stdout, stderr) => { if (error) { console.error(`Backup error: ${error.message}`); return res.status(500).json({ success: false, message: 'Falha ao criar backup.' }); } logAction(req.body.username, 'UPDATE', 'DATABASE', null, 'Database backup created'); res.json({ success: true, message: 'Backup do banco de dados criado com sucesso.', backupTimestamp: new Date().toISOString() }); }); });
 app.post('/api/database/restore', isAdmin, (req, res) => { const backupFile = path.join(BACKUP_DIR, 'inventario_pro_backup.sql.gz'); if (!fs.existsSync(backupFile)) { return res.status(404).json({ success: false, message: 'Nenhum arquivo de backup encontrado.' }); } const command = `gunzip < ${backupFile} | mysql -h ${DB_HOST} -u ${DB_USER} -p'${DB_PASSWORD}' ${DB_DATABASE}`; exec(command, (error, stdout, stderr) => { if (error) { console.error(`Restore error: ${error.message}`); return res.status(500).json({ success: false, message: 'Falha ao restaurar o backup.' }); } logAction(req.body.username, 'UPDATE', 'DATABASE', null, 'Database restored from backup'); res.json({ success: true, message: 'Banco de dados restaurado com sucesso.' }); }); });
 app.post('/api/database/clear', isAdmin, async (req, res) => { const connection = await db.promise().getConnection(); try { await connection.beginTransaction(); await connection.query('SET FOREIGN_KEY_CHECKS = 0;'); const tables = ['equipment_history', 'licenses', 'equipment', 'audit_log', 'app_config', 'migrations']; for(const table of tables){ await connection.query(`TRUNCATE TABLE ${table}`); } await connection.query('DELETE FROM users WHERE username != ?', ['admin']); await connection.query('SET FOREIGN_KEY_CHECKS = 1;'); await connection.commit(); await runMigrations(); logAction(req.body.username, 'DELETE', 'DATABASE', 'ALL', 'Database cleared and reset to initial state'); res.json({ success: true, message: 'Banco de dados zerado com sucesso. Apenas o usuário admin foi mantido.' }); } catch (err) { await connection.rollback(); console.error("Database clear error:", err); res.status(500).json({ success: false, message: `Erro ao zerar o banco de dados: ${err.message}` }); } finally { connection.release(); } });
+
+// --- AI Endpoints ---
+app.get('/api/ai/status', (req, res) => {
+    res.json({ isConfigured: !!geminiApiKey });
+});
+
+app.post('/api/ai/chat', async (req, res) => {
+    if (!genAI) {
+        return res.status(503).json({ message: "O Assistente AI não está configurado no servidor (chave da API não encontrada)." });
+    }
+
+    const { history, message, model, systemInstruction } = req.body;
+    
+    if (!message) {
+        return res.status(400).json({ message: "A mensagem do usuário não pode ser vazia." });
+    }
+
+    try {
+        const chat = genAI.chats.create({
+            model: model || 'gemini-2.5-flash',
+            config: {
+                systemInstruction: systemInstruction || 'Você é um assistente prestativo.'
+            },
+            history: history || [],
+        });
+        
+        const result = await chat.sendMessageStream({ message });
+
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Transfer-Encoding', 'chunked');
+
+        for await (const chunk of result) {
+            res.write(chunk.text);
+        }
+        res.end();
+
+    } catch (error) {
+        console.error("Gemini API error in backend:", error);
+        res.status(500).json({ message: "Erro ao se comunicar com a API do Gemini." });
+    }
+});
+
 
 // --- SERVER STARTUP ---
 const startServer = async () => {

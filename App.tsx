@@ -9,19 +9,21 @@ import Settings from './components/Settings';
 import AuditLog from './components/AuditLog';
 import Login from './components/Login';
 import TwoFactorAuth from './components/TwoFactorAuth';
-import TwoFactorSetup from './components/TwoFactorSetup'; // Novo componente
-import { Page, User, UserRole } from './types';
+import TwoFactorSetup from './components/TwoFactorSetup';
+import AIAssistantWidget from './components/AIAssistantWidget';
+import { Page, User, UserRole, AppSettings } from './types';
 import { getSettings } from './services/apiService';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userFor2FA, setUserFor2FA] = useState<User | null>(null);
-  const [userFor2FASetup, setUserFor2FASetup] = useState<User | null>(null); // Novo estado
+  const [userFor2FASetup, setUserFor2FASetup] = useState<User | null>(null);
   const [activePage, setActivePage] = useState<Page>('Dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [companyName, setCompanyName] = useState('MRR INFORMATICA');
   const [isSsoEnabled, setIsSsoEnabled] = useState(false);
+  const [aiSettings, setAiSettings] = useState<Partial<AppSettings>>({});
 
   useEffect(() => {
     const savedUser = localStorage.getItem('currentUser');
@@ -45,14 +47,21 @@ const App: React.FC = () => {
             const settings = await getSettings();
             setCompanyName(settings.companyName || 'MRR INFORMATICA');
             setIsSsoEnabled(settings.isSsoEnabled || false);
+            setAiSettings({
+                aiAssistantEnabled: settings.aiAssistantEnabled,
+                geminiModel: settings.geminiModel,
+                aiSystemInstruction: settings.aiSystemInstruction
+            });
         } catch (error) {
             console.error("Failed to fetch settings:", error);
         }
     }, []);
 
     useEffect(() => {
-        fetchSettings();
-    }, [fetchSettings]);
+        if (currentUser) {
+            fetchSettings();
+        }
+    }, [currentUser, fetchSettings]);
 
 
   const handleLoginSuccess = (user: User & { requires2FASetup?: boolean }) => {
@@ -84,7 +93,7 @@ const App: React.FC = () => {
   const handleLogout = () => {
     setCurrentUser(null);
     setUserFor2FA(null);
-    setUserFor2FASetup(null); // Limpar estado
+    setUserFor2FASetup(null);
     localStorage.removeItem('currentUser');
     sessionStorage.removeItem('2fa_verified');
     setActivePage('Dashboard');
@@ -180,6 +189,7 @@ const App: React.FC = () => {
           {renderPage()}
         </main>
       </div>
+      {currentUser && <AIAssistantWidget user={currentUser} settings={aiSettings} />}
     </div>
   );
 };

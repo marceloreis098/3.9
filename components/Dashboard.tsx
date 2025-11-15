@@ -146,10 +146,12 @@ const Dashboard: React.FC<DashboardProps> = ({setActivePage, currentUser}) => {
     const allModels = Array.from(new Set(equipment.map(e => e.model || 'Não especificado'))).sort();
 
     const data = allPolicyGroups.map(group => {
-      const groupData: { name: string; [key: string]: number | string } = { name: group };
+      // FIX: Cast 'group' to string to resolve 'unknown' type error.
+      const groupData: { name: string; [key: string]: number | string } = { name: group as string };
       
       allModels.forEach(model => {
-        groupData[model] = 0;
+        // FIX: Cast 'model' to string to resolve 'unknown' type error for index type.
+        groupData[model as string] = 0;
       });
 
       equipment.forEach(e => {
@@ -249,7 +251,7 @@ const Dashboard: React.FC<DashboardProps> = ({setActivePage, currentUser}) => {
               <Tooltip cursor={{fill: 'rgba(128,128,128,0.1)'}} contentStyle={{ backgroundColor: tooltipBackgroundColor, borderColor: tooltipBorderColor }} />
               <Legend wrapperStyle={{ color: textColor, fontSize: 12 }} />
               {allModels.map((model, index) => (
-                <Bar key={model} dataKey={model} stackId="a" fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                <Bar key={model as string} dataKey={model as string} stackId="a" fill={PIE_COLORS[index % PIE_COLORS.length]} />
               ))}
             </BarChart>
           </ResponsiveContainer>

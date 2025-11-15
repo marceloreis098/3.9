@@ -78,7 +78,7 @@ Siga estes passos para configurar e executar a aplicação.
     # Em /var/www/Inventario/inventario-api
     nano .env
     ```
-    Adicione o conteúdo, usando a senha do banco de dados:
+    Adicione o conteúdo, usando a senha do banco de dados e sua chave da API Gemini:
     ```
     DB_HOST=localhost
     DB_USER=inventario_user
@@ -86,6 +86,7 @@ Siga estes passos para configurar e executar a aplicação.
     DB_DATABASE=inventario_pro
     API_PORT=3001
     BCRYPT_SALT_ROUNDS=10
+    GEMINI_API_KEY=SUA_CHAVE_API_GEMINI_AQUI
     ```
 
 ### Passo 3: Configuração do Frontend
