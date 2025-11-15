@@ -1,3 +1,4 @@
+
 require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2');
@@ -77,7 +78,7 @@ const runMigrations = async () => {
             { id: 18, sql: `ALTER TABLE equipment ADD COLUMN condicaoTermo VARCHAR(50) NULL;` },
             { id: 19, sql: `UPDATE equipment SET status = 'Em Uso' WHERE usuarioAtual IS NOT NULL AND usuarioAtual != '';` },
             { id: 20, sql: `INSERT IGNORE INTO app_config (config_key, config_value) VALUES ('hasInitialConsolidationRun', 'false'); INSERT IGNORE INTO app_config (config_key, config_value) VALUES ('lastAbsoluteUpdateTimestamp', NULL);` },
-            { id: 21, sql: `INSERT IGNORE INTO app_config (config_key, config_value) VALUES ('aiAssistantEnabled', 'false'), ('geminiModel', 'gemini-2.5-flash'), ('aiSystemInstruction', 'Você é um assistente prestativo especialista em gerenciamento de inventário de TI. Responda em português brasileiro.');` }
+            { id: 21, sql: `INSERT IGNORE INTO app_config (config_key, config_value) VALUES ('aiAssistantEnabled', 'true'), ('geminiModel', 'gemini-2.5-flash'), ('aiSystemInstruction', 'Você é um assistente prestativo especialista em gerenciamento de inventário de TI. Responda em português brasileiro.');` }
         ];
         const migrationsToRun = migrations.filter(m => !executedMigrationIds.has(m.id));
         if (migrationsToRun.length > 0) {

@@ -545,7 +545,8 @@ const LicenseControl: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     }
 
     const ExpirationStatus: React.FC<{dateStr?: string}> = ({dateStr}) => {
-        if (!dateStr || dateStr.toUpperCase() === 'N/A') return <span>Perpétua</span>;
+        // FIX: Add explicit type guard for dateStr to resolve potential 'unknown' type errors.
+        if (typeof dateStr !== 'string' || !dateStr || dateStr.toUpperCase() === 'N/A') return <span>Perpétua</span>;
         
         const date = parseDateString(dateStr);
         if (!date) return <span className="font-semibold flex items-center gap-1.5 text-red-500"><Icon name="TriangleAlert" size={16} /> Data Inválida</span>;
