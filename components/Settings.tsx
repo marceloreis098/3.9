@@ -433,7 +433,7 @@ const Settings: React.FC<SettingsProps> = ({ currentUser }) => {
                     )}
 
                     {activeSettingsTab === 'ai' && currentUser.role === UserRole.Admin && (
-                        <div className="p-6 bg-gray-50 dark:bg-dark-bg rounded-lg border dark:border-dark-border">
+                        <div className="p-6 bg-gray-50 dark:bg-dark-bg rounded-lg border dark:border-dark-border animate-fade-in">
                             <h3 className="text-lg font-bold text-brand-secondary dark:text-dark-text-primary mb-4 flex items-center gap-2">
                                 <Icon name="Bot" size={20} />
                                 Assistente de Inteligência Artificial
@@ -455,7 +455,7 @@ const Settings: React.FC<SettingsProps> = ({ currentUser }) => {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-dark-text-secondary mb-1">Instrução do Sistema (Prompt)</label>
-                                    <textarea name="aiSystemInstruction" rows={5} value={settings.aiSystemInstruction || ''} onChange={handleInputChange} className="p-2 w-full border dark:border-dark-border rounded-md bg-white dark:bg-gray-800" placeholder="Ex: Você é um assistente especialista em inventário..." />
+                                    <textarea name="aiSystemInstruction" rows={5} value={settings.aiSystemInstruction || ''} onChange={handleInputChange} className="p-2 w-full border dark:border-dark-border rounded-md bg-white dark:bg-gray-800" placeholder="Ex: Você é um assistente especialista em inventário de TI..." />
                                 </div>
                             </div>
                         </div>

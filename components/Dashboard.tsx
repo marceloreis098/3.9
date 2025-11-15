@@ -141,16 +141,13 @@ const Dashboard: React.FC<DashboardProps> = ({setActivePage, currentUser}) => {
   const { policyGroupModelData, allModels } = useMemo(() => {
     if (!equipment.length) return { policyGroupModelData: [], allModels: [] };
 
-    // FIX: Using Array.from() ensures correct type inference from the Set, preventing variables from being typed as 'unknown'.
     const allPolicyGroups = Array.from(new Set(equipment.map(e => e.grupoPoliticas || 'Não especificado'))).sort();
     const allModels = Array.from(new Set(equipment.map(e => e.model || 'Não especificado'))).sort();
 
     const data = allPolicyGroups.map(group => {
-      // FIX: Cast 'group' to string to resolve 'unknown' type error.
       const groupData: { name: string; [key: string]: number | string } = { name: group as string };
       
       allModels.forEach(model => {
-        // FIX: Cast 'model' to string to resolve 'unknown' type error for index type.
         groupData[model as string] = 0;
       });
 

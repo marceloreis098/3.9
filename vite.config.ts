@@ -14,6 +14,8 @@ export default defineConfig({
         'recharts',
         'qrcode.react',
         'xlsx',
+        'react-markdown',
+        'remark-gfm',
       ],
     },
   },

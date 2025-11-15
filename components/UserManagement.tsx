@@ -10,15 +10,13 @@ const UserFormModal: React.FC<{
     onSave: () => void;
     currentUser: User;
 }> = ({ user, onClose, onSave, currentUser }) => {
-    // FIX: Add `is2FAEnabled` to formData state with a default value of false for new users.
-    // Also, explicitly type the formData to match the expected structure, omitting fields not managed by this form for better type safety.
     const [formData, setFormData] = useState<Omit<User, 'id' | 'lastLogin' | 'avatarUrl' | 'ssoProvider'>>({
         realName: '',
         username: '',
         email: '',
         role: UserRole.User,
         password: '',
-        is2FAEnabled: false, // Default to false for new users
+        is2FAEnabled: false,
     });
     const [isSaving, setIsSaving] = useState(false);
 
@@ -30,7 +28,7 @@ const UserFormModal: React.FC<{
                 email: user.email,
                 role: user.role,
                 password: '', // Password is not pre-filled for security
-                is2FAEnabled: user.is2FAEnabled, // Preserve existing 2FA status for editing
+                is2FAEnabled: user.is2FAEnabled, 
             });
         }
     }, [user]);
